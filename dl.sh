@@ -45,7 +45,7 @@ convert(){
 }
 
 move(){
-	mv ./* "$content_dir" || err "Unable to move files to $content_dir."
+	mv -v ./* "$content_dir" || err "Unable to move files to $content_dir."
 	rmdir "$temp_dir" || printf "Unable to remove directory $temp_dir.\n"
 }
 
