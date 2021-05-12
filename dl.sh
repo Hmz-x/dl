@@ -1,18 +1,22 @@
 #!/bin/sh
 
 # POSIX compliant script for downloading content to a directory using youtube-dl.
-# Change configuration options to suit your needs. link_file's contents MUST be modified.
+# Change configuration options to suit your needs. link_file (dl.conf by default) MUST be modified.
 
 # Basic Configuration
 link_file="$(dirname "$0")/dl.conf" # full path of file containing the links of the media
 # The file's first line should be the directory to which the content is to be downloaded, the rest should be links. See: dl_links function
-new_format="mp3" # downloaded content will be converted into this format
-ytdl_opt="-x" # parameter passed to youtube-dl
+file_extension="mp3" # downloaded content will be converted into this format
+ytdl_opt="-f best" # default parameter passed to youtube-dl
+ffmpeg_opt="-i" # default parameter passed to ffmpeg 
 lib_file="$(dirname "$0")/util.sh" # No need to change
 
 #Program Info
-VERSION="1.0"
+COPYRIGHT=""
+VERSION="1.1"
 AUTHOR="Hamza Kerem Mumcu"
+USAGE="Usage: $(basename "$0") [-e|--extension FILE_EXTENSION] [-s|--skip-ffmpeg] [--youtube-dl YOUTUBE-DL_OPTION...] [--ffmpeg FFMPEG_OPTION...] 
+[-h|--help] [-v|--version]\n"
 
 # Source function library file
 . "$lib_file" || { printf "Unable to source $lib_file. Exitting.\n" >&2 && exit 1; }
@@ -23,11 +27,7 @@ AUTHOR="Hamza Kerem Mumcu"
 [ ! -r "$link_file" ] && err "Unable to read link file."
 
 show_help(){
-	printf "usage: $(basename "$0") [OPTION]\n\n"
-	printf -- "-h | --help     display help menu and exit\n" 
-	printf -- "-v | --version  display version info and exit\n" 
-	printf -- "-f OPTION	   run youtube-dl with given format option\n" 
-	printf -- "-x			   run youtube-dl with --extract-audio option\n" 
+	printf "$USAGE"
 	exit 0
 }
 
@@ -38,21 +38,45 @@ show_version(){
 }
 
 parse_options(){
+	ytdl_opt_bool=1
+	ffmpeg_opt_bool=1
+	skip_ffmpeg_bool=1
+	
 	while [ "$#" -gt 0 ]; do
 		case "$1" in
-			-f) ytdl_opt='-f'; format_opt="$2"; [ -z "$format_opt" ] && err "No format option passed. See '--help'.";;
-			-x) ytdl_opt='-x';;
-	 --help|-h) show_help;;	
-  --version|-v) show_version;;	
-			-*) err "Unknown option. See '--help'.";;
-		esac
+  --youtube-dl) ytdl_opt_bool=0; ffmpeg_opt_bool=1; ytdl_opt='';;
+	  --ffmpeg) ffmpeg_opt_bool=0; ytdl_opt_bool=1; ffmpeg_opt='';;
 
+		    --) break;;
+			 *) 
+				# Everything read after --youtube-dl or --ffmpeg is considered an option
+				# for the corresponding program. Stop youtube-dl option interpretation by entering --ffmpeg
+				# or vice versa. --help, -h, --version and -v should all precede --youtube-dl or --ffmpeg
+				# in order for them to be interpreted as options passed to dl.sh
+				if [ "$ytdl_opt_bool" -eq 0 ]; then
+					ytdl_opt="$ytdl_opt""$1 "; 
+				elif [ "$ffmpeg_opt_bool" -eq 0 ]; then
+					ffmpeg_opt="$ffmpeg_opt""$1 "; 
+				elif [ "X$1" = "X--help" ] || [ "X$1" = "X-h" ]; then 
+					show_help
+				elif [ "X$1" = "X--version" ] || [ "X$1" = "X-v" ]; then 
+					show_version
+				elif [ "X$1" = "X-s" ] || [ "X$1" = "X--skip-ffmpeg" ]; then 
+					skip_ffmpeg_bool=0	
+				elif [ "X$1" = "X-e" ] || [ "X$1" = "X--extension" ]; then 
+					file_extension="$2"; shift;
+				else
+					err "Unknown option '$1'. See '--help'."
+				fi;;
+		esac
 		shift
 	done
 }
 
 dl_links(){
 	count=0
+	failed_downloads=''
+
 	while read line; do
 		if [ "$count" -eq 0 ]; then
 			content_dir="$line"
@@ -62,10 +86,7 @@ dl_links(){
 			temp_dir="$(mktemp -d)" || err "Unable to create temporary directory."
 			cd "$temp_dir" || err "Unable to cd into temporary directory."
 		else
-			# On "requested format not available" error, if format is audio, pass -x to youtube-dl and try again
-			youtube-dl "$ytdl_opt" "$format_opt" "$line"	
-			[ "$?" -ne 0 ] && [ "X$ytdl_opt $format_opt" = "X-f bestaudio" ] && 
-			{ printf "Retrying with '-x' parameter.\n"; youtube-dl -x "$line"; }
+			eval youtube-dl "$ytdl_opt" "$line"	|| failed_downloads="${failed_downloads}$link_file:$count:$line\n"
 		fi
 		count=$((count+1))
 
@@ -73,10 +94,11 @@ dl_links(){
 }
 
 convert(){
+	failed_conversions=''
+
 	for file in *; do
-		new_file="$(chext "$file" "$new_format" || err "chext function error.")"
-		ffmpeg -i "$file" "$new_file"
-		rm "$file" || printf "Unable to remove $file.\n"
+		new_file="$(chext "$file" "$file_extension" || err "chext function error.")"
+		{ eval ffmpeg "$ffmpeg_opt" \"$file\" \"$new_file\" && rm "$file"; } || failed_conversions="${failed_conversions}$file to $new_file\n"
 	done
 }
 
@@ -85,14 +107,24 @@ move(){
 	rmdir "$temp_dir" || printf "Unable to remove directory $temp_dir.\n"
 }
 
+print_failed(){
+	[ -n "$failed_downloads" ] && printf "\nFailed Downloads\n$failed_downloads"
+	[ -n "$failed_conversions" ] && printf "\nFailed Conversions\n$failed_conversions"
+}
+
 # Parse pos-params
 parse_options "$@"
 
 # Read links and dir from file. Download links to a temp dir.
 dl_links
 
-# Convert downloaded content into given format, new_format.
-convert
+# Convert downloaded content into given format, file_extension.
+[ "$skip_ffmpeg_bool" -eq 1 ] && convert
 
 # Move files in temp dir to content_dir
 move
+
+# Print failed downloads and conversions
+print_failed
+
+exit 0
