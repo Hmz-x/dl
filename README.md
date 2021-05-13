@@ -4,8 +4,7 @@ POSIX compliant script for downloading content to a specified directory
 using `youtube-dl` and then converting using `ffmpeg`.
 
 To change the dafault options to suit your needs see 'Basic Configuration' 
-in `dl.sh`. See the content link file, `dl.conf`, for specifying which
-directory the content will be downloaded and from what links.
+in `dl.sh`.
 
 ## Usage
 
