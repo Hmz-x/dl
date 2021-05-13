@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # POSIX compliant script for downloading content to a directory using youtube-dl.
-# Change configuration options to suit your needs. config_file (dl.conf by default) MUST be modified.
+# Change configuration options to suit your needs. config_file ($HOME/.dl.conf by default) MUST be modified.
 
 # Basic Configuration
 config_file="$HOME/.dl.conf" # full path of file containing the links of the media
@@ -109,7 +109,7 @@ dl_links(){
 
 	while read line; do
 		if [ "$count" -eq 0 ]; then
-			content_dir="$line"
+			eval content_dir="$line"
 			eval [ -d \"$content_dir\" ] || { eval mkdir -p \"$content_dir\" || eval err "\"Unable to make directory \"$content_dir\".\""; }
 
 			# Download all links to temp directory 
@@ -127,8 +127,12 @@ convert(){
 	failed_conversions=''
 
 	for file in *; do
-		new_file="$(chext "$file" "$file_extension" || err "chext function error.")"
-		{ eval ffmpeg "$ffmpeg_opt" \"$file\" \"$new_file\" && rm "$file"; } || failed_conversions="${failed_conversions}$file to $new_file\n"
+		# Get $new_file, which is $file with its extension replaced, if the two strings are equal,
+	    # continue on to the next iteration. If not, convert via ffmpeg and then remove original file.
+		
+		{ new_file="$(chext "$file" "$file_extension")" && 
+		{ [ "$new_file" != "$file" ] || continue; } && 
+		eval "ffmpeg "$ffmpeg_opt" \"$file\" \"$new_file\"" && rm "$file"; } || failed_conversions="${failed_conversions}$file to $new_file\n"
 	done
 }
 
