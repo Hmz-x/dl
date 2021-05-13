@@ -1,30 +1,59 @@
 #!/bin/sh
 
 # POSIX compliant script for downloading content to a directory using youtube-dl.
-# Change configuration options to suit your needs. link_file (dl.conf by default) MUST be modified.
+# Change configuration options to suit your needs. config_file (dl.conf by default) MUST be modified.
 
 # Basic Configuration
-link_file="$(dirname "$0")/dl.conf" # full path of file containing the links of the media
+config_file="$HOME/.dl.conf" # full path of file containing the links of the media
 # The file's first line should be the directory to which the content is to be downloaded, the rest should be links. See: dl_links function
-file_extension="mp3" # downloaded content will be converted into this format
+file_extension="mp4" # default extension; downloaded content will be converted into this format
 ytdl_opt="-f best" # default parameter passed to youtube-dl
 ffmpeg_opt="-i" # default parameter passed to ffmpeg 
-lib_file="$(dirname "$0")/util.sh" # No need to change
 
 #Program Info
-COPYRIGHT=""
+LICENSE="GNU GPLv3"
 VERSION="1.1"
-AUTHOR="Hamza Kerem Mumcu"
+AUTHOR="Hamza Kerem Mumcu <hamzamumcu@protonmail.com>"
 USAGE="Usage: $(basename "$0") [-e|--extension FILE_EXTENSION] [-s|--skip-ffmpeg] [--youtube-dl YOUTUBE-DL_OPTION...] [--ffmpeg FFMPEG_OPTION...] 
 [-h|--help] [-v|--version]\n"
 
-# Source function library file
-. "$lib_file" || { printf "Unable to source $lib_file. Exitting.\n" >&2 && exit 1; }
+err(){
+	# Print error message, "$1", to stderr and exit.
+	printf "$1 Exitting.\n" >&2
+	exit 1
+}
 
-# Error checking
-[ -z "$(which youtube-dl)" ] && err "youtube-dl not in path."
-[ -z "$(which ffmpeg)" ] && err "ffmpeg not in path."
-[ ! -r "$link_file" ] && err "Unable to read link file."
+chext(){
+	# Print passed filename, "$1", with its extension removed.
+	# Display the filename with its new extension, "$2", instead.
+
+	file="$1"
+	[ -z "$file" ] && printf "No filename given. Returning.\n" && return 1
+	
+	strlen="${#file}"
+	dot_index=-1
+	i=$(($strlen-1))
+	
+	# Get dot index
+	while [ "$i" -gt -1 ]; do
+		char="$(printf "$file" | cut -b $((i+1)))"
+		[ "$char" = '.' ] && dot_index="$i" && break
+		i=$(($i-1))
+	done
+	
+	[ "$dot_index" -eq -1 ] && printf "No extension was detected. Returning.\n" && return 1
+
+	i=0
+	# Display filename without extension
+	while [ "$i" -lt "$dot_index" ]; do
+		char="$(printf "$file" | cut -b $((i+1)))"
+		printf "$char"
+		i=$(($i+1))
+	done
+	
+	# Add on new extension	
+	[ -n "$2" ] && printf ".$2"
+}
 
 show_help(){
 	printf "$USAGE"
@@ -33,6 +62,7 @@ show_help(){
 
 show_version(){
 	printf "dl.sh $VERSION\n"
+	printf "Licensed under $LICENSE\n"
 	printf "Written by $AUTHOR\n"
 	exit 0
 }
@@ -80,17 +110,17 @@ dl_links(){
 	while read line; do
 		if [ "$count" -eq 0 ]; then
 			content_dir="$line"
-			[ -d "$content_dir" ] || { mkdir "$content_dir" || err "Unable to make directory $content_dir."; }
+			eval [ -d \"$content_dir\" ] || { eval mkdir -p \"$content_dir\" || eval err "\"Unable to make directory \"$content_dir\".\""; }
 
 			# Download all links to temp directory 
 			temp_dir="$(mktemp -d)" || err "Unable to create temporary directory."
 			cd "$temp_dir" || err "Unable to cd into temporary directory."
 		else
-			eval youtube-dl "$ytdl_opt" "$line"	|| failed_downloads="${failed_downloads}$link_file:$count:$line\n"
+			eval youtube-dl "$ytdl_opt" "$line"	|| failed_downloads="${failed_downloads}$config_file:$count:$line\n"
 		fi
 		count=$((count+1))
 
-	done < "$link_file"
+	done < "$config_file"
 }
 
 convert(){
@@ -103,7 +133,7 @@ convert(){
 }
 
 move(){
-	mv -v ./* "$content_dir" || err "Unable to move files to $content_dir."
+	eval mv -v "./*" \"$content_dir\" || eval err "Unable to move files to \"$content_dir\"."
 	rmdir "$temp_dir" || printf "Unable to remove directory $temp_dir.\n"
 }
 
@@ -111,6 +141,11 @@ print_failed(){
 	[ -n "$failed_downloads" ] && printf "\nFailed Downloads\n$failed_downloads"
 	[ -n "$failed_conversions" ] && printf "\nFailed Conversions\n$failed_conversions"
 }
+
+# Error checking
+[ -z "$(which youtube-dl)" ] && err "youtube-dl not in path."
+[ -z "$(which ffmpeg)" ] && err "ffmpeg not in path."
+[ ! -r "$config_file" ] && err "Unable to read configuration file, $config_file."
 
 # Parse pos-params
 parse_options "$@"
