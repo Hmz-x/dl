@@ -14,8 +14,8 @@ ffmpeg_opt="-i" # default parameter passed to ffmpeg
 LICENSE="GNU GPLv3"
 VERSION="1.1"
 AUTHOR="Hamza Kerem Mumcu <hamzamumcu@protonmail.com>"
-USAGE="Usage: $(basename "$0") [-e|--extension FILE_EXTENSION] [-s|--skip-ffmpeg] [--youtube-dl YOUTUBE-DL_OPTION...] [--ffmpeg FFMPEG_OPTION...] 
-[-h|--help] [-v|--version]\n"
+USAGE="Usage: $(basename "$0") [-e|--extension FILE_EXTENSION] [-s|--skip-ffmpeg] 
+[--youtube-dl YOUTUBE-DL_OPTION...] [--ffmpeg FFMPEG_OPTION...] [-h|--help] [-v|--version]\n"
 
 err(){
 	# Print error message, "$1", to stderr and exit.
@@ -137,7 +137,7 @@ convert(){
 }
 
 move(){
-	eval mv -v "./*" \"$content_dir\" || eval err "Unable to move files to \"$content_dir\"."
+	eval "mv -v ./* \"$content_dir\"" || eval "err "Unable to move files to \"$content_dir\".""
 	rmdir "$temp_dir" || printf "Unable to remove directory $temp_dir.\n"
 }
 
