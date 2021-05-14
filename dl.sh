@@ -15,11 +15,11 @@ LICENSE="GNU GPLv3"
 VERSION="1.1"
 AUTHOR="Hamza Kerem Mumcu <hamzamumcu@protonmail.com>"
 USAGE="Usage: $(basename "$0") [-e|--extension FILE_EXTENSION] [-s|--skip-ffmpeg] 
-[--youtube-dl YOUTUBE-DL_OPTION...] [--ffmpeg FFMPEG_OPTION...] [-h|--help] [-v|--version]\n"
+[--youtube-dl YOUTUBE-DL_OPTION...] [--ffmpeg FFMPEG_OPTION...] [-h|--help] [-v|--version]"
 
 err(){
 	# Print error message, "$1", to stderr and exit.
-	printf "$1 Exitting.\n" >&2
+	printf "%s Exitting.\n" "$1" >&2
 	exit 1
 }
 
@@ -32,13 +32,13 @@ chext(){
 	
 	strlen="${#file}"
 	dot_index=-1
-	i=$(($strlen-1))
+	i=$((strlen-1))
 	
 	# Get dot index
 	while [ "$i" -gt -1 ]; do
-		char="$(printf "$file" | cut -b $((i+1)))"
+		char="$(printf "%s" "$file" | cut -b $((i+1)))"
 		[ "$char" = '.' ] && dot_index="$i" && break
-		i=$(($i-1))
+		i=$((i-1))
 	done
 	
 	[ "$dot_index" -eq -1 ] && printf "No extension was detected. Returning.\n" && return 1
@@ -46,24 +46,24 @@ chext(){
 	i=0
 	# Display filename without extension
 	while [ "$i" -lt "$dot_index" ]; do
-		char="$(printf "$file" | cut -b $((i+1)))"
-		printf "$char"
-		i=$(($i+1))
+		char="$(printf "%s" "$file" | cut -b $((i+1)))"
+		printf "%s" "$char"
+		i=$((i+1))
 	done
 	
 	# Add on new extension	
-	[ -n "$2" ] && printf ".$2"
+	[ -n "$2" ] && printf ".%s" "$2"
 }
 
 show_help(){
-	printf "$USAGE"
+	printf "%s\n" "$USAGE"
 	exit 0
 }
 
 show_version(){
-	printf "dl.sh $VERSION\n"
-	printf "Licensed under $LICENSE\n"
-	printf "Written by $AUTHOR\n"
+	printf "dl.sh %s\n" "$VERSION"
+	printf "Licensed under %s\n" "$LICENSE"
+	printf "Written by %s\n" "$AUTHOR"
 	exit 0
 }
 
@@ -107,10 +107,10 @@ dl_links(){
 	count=0
 	failed_downloads=''
 
-	while read line; do
+	while read -r line; do
 		if [ "$count" -eq 0 ]; then
 			eval content_dir="$line"
-			eval [ -d \"$content_dir\" ] || { eval mkdir -p \"$content_dir\" || eval err "\"Unable to make directory \"$content_dir\".\""; }
+			[ -d "$content_dir" ] || { mkdir -p "$content_dir" || err "Unable to make directory $content_dir."; }
 
 			# Download all links to temp directory 
 			temp_dir="$(mktemp -d)" || err "Unable to create temporary directory."
@@ -132,24 +132,24 @@ convert(){
 		
 		{ new_file="$(chext "$file" "$file_extension")" && 
 		{ [ "$new_file" != "$file" ] || continue; } && 
-		eval "ffmpeg "$ffmpeg_opt" \"$file\" \"$new_file\"" && rm "$file"; } || failed_conversions="${failed_conversions}$file to $new_file\n"
+		eval "ffmpeg ""$ffmpeg_opt"" \"$file\" \"$new_file\"" && rm "$file"; } || failed_conversions="${failed_conversions}$file to $new_file\n"
 	done
 }
 
 move(){
-	eval "mv -v ./* \"$content_dir\"" || eval "err "Unable to move files to \"$content_dir\".""
-	rmdir "$temp_dir" || printf "Unable to remove directory $temp_dir.\n"
+	mv -v ./* "$content_dir" || err "Unable to move files to $content_dir."
+	rmdir "$temp_dir" || printf "Unable to remove directory %s.\n" "$temp_dir"
 }
 
 print_failed(){
-	[ -n "$failed_downloads" ] && printf "\nFailed Downloads\n$failed_downloads"
-	[ -n "$failed_conversions" ] && printf "\nFailed Conversions\n$failed_conversions"
+	[ -n "$failed_downloads" ] && printf "\nFailed Downloads\n%s" "$failed_downloads"
+	[ -n "$failed_conversions" ] && printf "\nFailed Conversions\n%s" "$failed_conversions"
 }
 
 # Error checking
 [ -z "$(which youtube-dl)" ] && err "youtube-dl not in path."
 [ -z "$(which ffmpeg)" ] && err "ffmpeg not in path."
-[ ! -r "$config_file" ] && err "Unable to read configuration file, $config_file."
+[ ! -r "$config_file" ] && err "Unable to read configuration file $config_file. Please create it if it doesn't already exist. See:README.md."
 
 # Parse pos-params
 parse_options "$@"
