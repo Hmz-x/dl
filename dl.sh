@@ -116,7 +116,7 @@ dl_links(){
 			temp_dir="$(mktemp -d)" || err "Unable to create temporary directory."
 			cd "$temp_dir" || err "Unable to cd into temporary directory."
 		else
-			eval youtube-dl "$ytdl_opt" "$line"	|| failed_downloads="${failed_downloads}$config_file:$count:$line\n"
+			eval youtube-dl "$ytdl_opt" \"$line\"	|| failed_downloads="${failed_downloads}$config_file:$count:$line - "
 		fi
 		count=$((count+1))
 
@@ -132,7 +132,7 @@ convert(){
 		
 		{ new_file="$(chext "$file" "$file_extension")" && 
 		{ [ "$new_file" != "$file" ] || continue; } && 
-		eval "ffmpeg ""$ffmpeg_opt"" \"$file\" \"$new_file\"" && rm "$file"; } || failed_conversions="${failed_conversions}$file to $new_file\n"
+		eval "ffmpeg ""$ffmpeg_opt"" \"$file\" \"$new_file\"" && rm "$file"; } || failed_conversions="${failed_conversions}$file to $new_file - "
 	done
 }
 
@@ -147,8 +147,8 @@ print_failed(){
 }
 
 # Error checking
-[ -z "$(which youtube-dl)" ] && err "youtube-dl not in path."
-[ -z "$(which ffmpeg)" ] && err "ffmpeg not in path."
+[ -z "$(command -v youtube-dl)" ] && err "youtube-dl not in path."
+[ -z "$(command -v ffmpeg)" ] && err "ffmpeg not in path."
 [ ! -r "$config_file" ] && err "Unable to read configuration file $config_file. Please create it if it doesn't already exist. See:README.md."
 
 # Parse pos-params
